@@ -6,7 +6,7 @@ import akka.http.scaladsl.client.RequestBuilding.Get
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.jbjoffre.poke.domains.Pokemon
-import com.jbjoffre.poke.errors.{ClientInternalServerError, ResourceNotFound}
+import com.jbjoffre.poke.errors.{ClientInternalServerError, DeserializationError, ResourceNotFound}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,7 +21,9 @@ class PokemonApiService()(implicit val as: ActorSystem, val ec: ExecutionContext
       case HttpResponse(StatusCodes.NotFound, _, _, _) => Future.failed(ResourceNotFound(id))
       case HttpResponse(StatusCodes.InternalServerError, _, _, _) => Future.failed(ClientInternalServerError())
     } flatMap { resp =>
-      Unmarshal(resp.entity).to[Pokemon]
+      Unmarshal(resp.entity).to[Pokemon] recoverWith {
+        case exc => Future.failed(DeserializationError(exc))
+      }
     }
   }
 
